@@ -3,7 +3,8 @@ name: Build custom base path images
 # NEXT_PUBLIC_BASE_PATH is inlined into the web client bundle and /_next/static
 # assets at build time, so the published langfuse/langfuse image cannot be
 # reused for a custom base path. This workflow builds the web + worker images
-# from source with /langfuse baked in and pushes them to GHCR.
+# from source with /langfuse baked in and pushes them to GHCR, and to Docker Hub
+# when the DOCKERHUB_USERNAME / DOCKERHUB_TOKEN secrets are configured.
 #
 # https://langfuse.com/self-hosting/custom-base-path
 on:
@@ -63,11 +64,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ghcr.io/${{ github.repository }}${{ matrix.image_suffix }}
+          images: |
+            ghcr.io/${{ github.repository }}${{ matrix.image_suffix }}
+            ${{ (secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '') && format('docker.io/{0}{1}', secrets.DOCKERHUB_USERNAME, matrix.image_suffix) || '' }}
           tags: |
             type=ref,event=branch,prefix=langfuse-
             type=ref,event=tag,prefix=langfuse-
@@ -85,7 +95,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ matrix.build_args }}
           cache-from: type=gha,scope=${{ matrix.target }}-langfuse
-          cache-to: type=gha,mode=max,scope=${{ matrix.target }}-langfuse
+          cache-to: type=gha,scope=${{ matrix.target }}-langfuse,mode=max
 
       - name: Summary
         env:
