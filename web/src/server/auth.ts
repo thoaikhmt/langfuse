@@ -39,7 +39,7 @@ import EmailProvider from "next-auth/providers/email";
 import { randomInt } from "crypto";
 import Auth0Provider from "next-auth/providers/auth0";
 import CognitoProvider from "next-auth/providers/cognito";
-import AzureADProvider from "next-auth/providers/azure-ad";
+import AzureADProvider, { type AzureADProfile } from "next-auth/providers/azure-ad";
 import KeycloakProvider from "next-auth/providers/keycloak";
 import WorkOSProvider from "next-auth/providers/workos";
 import WordPressProvider from "next-auth/providers/wordpress";
@@ -488,6 +488,11 @@ if (
           : {}),
       },
       ...(env.AUTH_AZURE_AD_CHECKS ? { checks: env.AUTH_AZURE_AD_CHECKS } : {}),
+      profile(profile: AzureADProfile) {
+        const email =
+          profile.email ?? profile.upn ?? profile.preferred_username;
+        return { id: profile.sub, name: profile.name, email };
+      },
     }),
   );
 
