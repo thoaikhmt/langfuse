@@ -184,8 +184,9 @@ export const env = createEnv({
     AUTH_AZURE_AD_CHECKS: zAuthChecks,
     AUTH_AZURE_AD_ID_TOKEN_SIGNED_RESPONSE_ALG: zIdTokenAlg,
     // Optional allowlist of Azure AD group identifiers (object IDs or names,
-    // depending on the app registration's groups claim configuration). When set,
-    // a user must be a member of every listed group to sign in via Azure AD.
+    // depending on the app registration's groups claim configuration). Separate
+    // multiple groups by newlines and/or commas. When set, a user must be a
+    // member of at least one listed group to sign in via Azure AD.
     AUTH_AZURE_AD_ALLOWED_GROUPS: z.string().optional(),
     AUTH_OKTA_CLIENT_ID: z.string().optional(),
     AUTH_OKTA_CLIENT_SECRET: z.string().optional(),

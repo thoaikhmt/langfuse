@@ -1128,16 +1128,27 @@ export async function getAuthOptions(signupAttribution?: {
           // name, matching how the Azure app registration emits the groups
           // claim). Requires the app registration to include a groups claim in
           // the ID token (Token configuration -> groups claim); without it the
-          // claim is absent and sign in is denied while the allowlist is set.
+          // Optional configuration: require Azure AD group membership.
+          // The user must be a member of AT LEAST ONE of the configured groups
+          // (object ID or name, matching how the Azure app registration emits
+          // the groups claim). Requires the app registration to include a
+          // groups claim in the ID token (Token configuration -> groups claim);
+          // without it the claim is absent and sign in is denied while the
+          // allowlist is set.
           if (
             env.AUTH_AZURE_AD_ALLOWED_GROUPS &&
             account?.provider === "azure-ad"
           ) {
-            const requiredGroups = env.AUTH_AZURE_AD_ALLOWED_GROUPS.split(",")
+            // Accept groups separated by newlines and/or commas so operators
+            // can use a YAML block scalar (one group per line) or a single
+            // comma-separated string.
+            const allowedGroups = env.AUTH_AZURE_AD_ALLOWED_GROUPS.split(
+              /[\n,]/,
+            )
               .map((group) => group.trim().toLowerCase())
               .filter((group) => group.length > 0);
 
-            if (requiredGroups.length > 0) {
+            if (allowedGroups.length > 0) {
               const groupsClaim = (profile as AzureADProfile & {
                 groups?: unknown;
               })?.groups;
@@ -1148,46 +1159,30 @@ export async function getAuthOptions(signupAttribution?: {
                 .filter((group): group is string => typeof group === "string")
                 .map((group) => group.toLowerCase());
 
-              const missingGroups = requiredGroups.filter(
-                (group) => !userGroups.includes(group),
+              const matchedGroups = allowedGroups.filter((group) =>
+                userGroups.includes(group),
               );
-              const hasAllRequiredGroups = missingGroups.length === 0;
+              const hasAnyAllowedGroup = matchedGroups.length > 0;
 
-              logger.info("Evaluating Azure AD group allowlist for sign in", {
-                email,
-                provider: account.provider,
-                requiredGroups,
-                userGroups,
-                groupsClaimPresent,
-                userGroupCount: userGroups.length,
-                missingGroups,
-                allowed: hasAllRequiredGroups,
-              });
+              logger.info(
+                `Evaluating Azure AD group allowlist for ${email}: allowed=[${allowedGroups.join(", ")}] user=[${userGroups.join(", ")}] matched=[${matchedGroups.join(", ")}] result=${hasAnyAllowedGroup ? "allow" : "deny"}`,
+              );
 
-              if (!hasAllRequiredGroups) {
+              if (!hasAnyAllowedGroup) {
                 if (!groupsClaimPresent) {
                   logger.warn(
-                    "Azure AD sign in denied: ID token has no groups claim while AUTH_AZURE_AD_ALLOWED_GROUPS is set. Configure a groups claim on the app registration (Token configuration -> groups claim).",
-                    { email, requiredGroups },
+                    `Azure AD sign in denied for ${email}: ID token has no groups claim while AUTH_AZURE_AD_ALLOWED_GROUPS is set. Configure a groups claim on the app registration (Token configuration -> groups claim). allowed=[${allowedGroups.join(", ")}]`,
                   );
                 } else {
                   logger.warn(
-                    "Azure AD sign in denied: user is not a member of all required groups",
-                    {
-                      email,
-                      requiredGroups,
-                      userGroups,
-                      missingGroups,
-                      userGroupCount: userGroups.length,
-                    },
+                    `Azure AD sign in denied for ${email}: user is not a member of any allowed group. allowed=[${allowedGroups.join(", ")}] user=[${userGroups.join(", ")}]`,
                   );
                 }
                 return false;
               }
 
               logger.info(
-                "Azure AD sign in allowed: user is a member of all required groups",
-                { email, requiredGroups, userGroups },
+                `Azure AD sign in allowed for ${email}: user is a member of an allowed group. allowed=[${allowedGroups.join(", ")}] user=[${userGroups.join(", ")}] matched=[${matchedGroups.join(", ")}]`,
               );
             }
           }
