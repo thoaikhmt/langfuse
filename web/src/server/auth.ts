@@ -1141,28 +1141,52 @@ export async function getAuthOptions(signupAttribution?: {
               const groupsClaim = (profile as AzureADProfile & {
                 groups?: unknown;
               })?.groups;
+              const groupsClaimPresent = Array.isArray(groupsClaim);
               const userGroups = (
-                Array.isArray(groupsClaim) ? groupsClaim : []
+                groupsClaimPresent ? (groupsClaim as unknown[]) : []
               )
                 .filter((group): group is string => typeof group === "string")
                 .map((group) => group.toLowerCase());
 
-              const hasAllRequiredGroups = requiredGroups.every((group) =>
-                userGroups.includes(group),
+              const missingGroups = requiredGroups.filter(
+                (group) => !userGroups.includes(group),
               );
+              const hasAllRequiredGroups = missingGroups.length === 0;
+
+              logger.info("Evaluating Azure AD group allowlist for sign in", {
+                email,
+                provider: account.provider,
+                requiredGroups,
+                groupsClaimPresent,
+                userGroupCount: userGroups.length,
+                missingGroups,
+                allowed: hasAllRequiredGroups,
+              });
 
               if (!hasAllRequiredGroups) {
-                logger.warn(
-                  "Azure AD sign in denied: user is not a member of all required groups",
-                  {
-                    email,
-                    requiredGroups,
-                    // number of groups only; avoids logging group identifiers
-                    userGroupCount: userGroups.length,
-                  },
-                );
+                if (!groupsClaimPresent) {
+                  logger.warn(
+                    "Azure AD sign in denied: ID token has no groups claim while AUTH_AZURE_AD_ALLOWED_GROUPS is set. Configure a groups claim on the app registration (Token configuration -> groups claim).",
+                    { email, requiredGroups },
+                  );
+                } else {
+                  logger.warn(
+                    "Azure AD sign in denied: user is not a member of all required groups",
+                    {
+                      email,
+                      requiredGroups,
+                      missingGroups,
+                      userGroupCount: userGroups.length,
+                    },
+                  );
+                }
                 return false;
               }
+
+              logger.info(
+                "Azure AD sign in allowed: user is a member of all required groups",
+                { email, requiredGroups },
+              );
             }
           }
 
