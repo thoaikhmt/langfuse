@@ -1123,6 +1123,49 @@ export async function getAuthOptions(signupAttribution?: {
             }
           }
 
+          // Optional configuration: require Azure AD group membership.
+          // The user must be a member of EVERY configured group (object ID or
+          // name, matching how the Azure app registration emits the groups
+          // claim). Requires the app registration to include a groups claim in
+          // the ID token (Token configuration -> groups claim); without it the
+          // claim is absent and sign in is denied while the allowlist is set.
+          if (
+            env.AUTH_AZURE_AD_ALLOWED_GROUPS &&
+            account?.provider === "azure-ad"
+          ) {
+            const requiredGroups = env.AUTH_AZURE_AD_ALLOWED_GROUPS.split(",")
+              .map((group) => group.trim().toLowerCase())
+              .filter((group) => group.length > 0);
+
+            if (requiredGroups.length > 0) {
+              const groupsClaim = (profile as AzureADProfile & {
+                groups?: unknown;
+              })?.groups;
+              const userGroups = (
+                Array.isArray(groupsClaim) ? groupsClaim : []
+              )
+                .filter((group): group is string => typeof group === "string")
+                .map((group) => group.toLowerCase());
+
+              const hasAllRequiredGroups = requiredGroups.every((group) =>
+                userGroups.includes(group),
+              );
+
+              if (!hasAllRequiredGroups) {
+                logger.warn(
+                  "Azure AD sign in denied: user is not a member of all required groups",
+                  {
+                    email,
+                    requiredGroups,
+                    // number of groups only; avoids logging group identifiers
+                    userGroupCount: userGroups.length,
+                  },
+                );
+                return false;
+              }
+            }
+          }
+
           return await Promise.resolve(true);
         });
       },
