@@ -1158,6 +1158,7 @@ export async function getAuthOptions(signupAttribution?: {
                 email,
                 provider: account.provider,
                 requiredGroups,
+                userGroups,
                 groupsClaimPresent,
                 userGroupCount: userGroups.length,
                 missingGroups,
@@ -1176,6 +1177,7 @@ export async function getAuthOptions(signupAttribution?: {
                     {
                       email,
                       requiredGroups,
+                      userGroups,
                       missingGroups,
                       userGroupCount: userGroups.length,
                     },
@@ -1186,7 +1188,7 @@ export async function getAuthOptions(signupAttribution?: {
 
               logger.info(
                 "Azure AD sign in allowed: user is a member of all required groups",
-                { email, requiredGroups },
+                { email, requiredGroups, userGroups },
               );
             }
           }
