@@ -1,4 +1,7 @@
-import { MULTI_TENANT_SSO_DOMAIN_MISMATCH_MESSAGE } from "@/src/features/auth/constants";
+import {
+  AZURE_AD_GROUP_REQUIRED_MESSAGE_PREFIX,
+  MULTI_TENANT_SSO_DOMAIN_MISMATCH_MESSAGE,
+} from "@/src/features/auth/constants";
 
 /**
  * Classify NextAuth error outcomes surfaced in the browser
@@ -39,6 +42,10 @@ export const isExpectedSignInError = (code: string): boolean =>
 //   this value is user-caused by construction.
 // - SSO domain mismatch: deliberate rejection thrown by our signIn callback
 //   (logged server-side before the throw).
+// - Azure AD group requirement: deliberate rejection thrown by our signIn
+//   callback when the user is not in AUTH_AZURE_AD_ALLOWED_GROUPS (logged
+//   server-side before the throw). Matched by prefix because the message
+//   embeds the dynamic list of allowed groups.
 // Configuration / AccessDenied / unknown values still capture.
 const EXPECTED_AUTH_ERROR_PAGE_MESSAGES: readonly string[] = [
   "Verification",
@@ -46,7 +53,8 @@ const EXPECTED_AUTH_ERROR_PAGE_MESSAGES: readonly string[] = [
 ];
 
 export const isExpectedAuthErrorPageMessage = (message: string): boolean =>
-  EXPECTED_AUTH_ERROR_PAGE_MESSAGES.includes(message);
+  EXPECTED_AUTH_ERROR_PAGE_MESSAGES.includes(message) ||
+  message.startsWith(AZURE_AD_GROUP_REQUIRED_MESSAGE_PREFIX);
 
 /**
  * next-auth v4 `signIn(..., { redirect: false })` always does

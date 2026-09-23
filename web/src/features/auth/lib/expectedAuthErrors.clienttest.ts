@@ -6,7 +6,11 @@ import {
   isNextAuthMissingSignInUrlError,
   isJsonParseSyntaxError,
 } from "@/src/features/auth/lib/expectedAuthErrors";
-import { MULTI_TENANT_SSO_DOMAIN_MISMATCH_MESSAGE } from "@/src/features/auth/constants";
+import {
+  AZURE_AD_GROUP_REQUIRED_MESSAGE_PREFIX,
+  buildAzureAdGroupRequiredMessage,
+  MULTI_TENANT_SSO_DOMAIN_MISMATCH_MESSAGE,
+} from "@/src/features/auth/constants";
 
 describe("expectedAuthErrors", () => {
   describe("isExpectedSignInError", () => {
@@ -49,6 +53,28 @@ describe("expectedAuthErrors", () => {
       expect(
         isExpectedAuthErrorPageMessage(
           MULTI_TENANT_SSO_DOMAIN_MISMATCH_MESSAGE,
+        ),
+      ).toBe(true);
+    });
+
+    it("classifies the Azure AD group rejection (with group list) as expected", () => {
+      expect(
+        isExpectedAuthErrorPageMessage(
+          buildAzureAdGroupRequiredMessage(["Operator", "Moderator"]),
+        ),
+      ).toBe(true);
+    });
+
+    it("classifies the Azure AD group rejection (no group list) as expected", () => {
+      expect(
+        isExpectedAuthErrorPageMessage(buildAzureAdGroupRequiredMessage([])),
+      ).toBe(true);
+    });
+
+    it("matches the Azure AD rejection by its stable prefix", () => {
+      expect(
+        isExpectedAuthErrorPageMessage(
+          `${AZURE_AD_GROUP_REQUIRED_MESSAGE_PREFIX} some future wording`,
         ),
       ).toBe(true);
     });
