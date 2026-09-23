@@ -56,6 +56,7 @@ import {
   loadSsoProviders,
 } from "@/src/ee/features/multi-tenant-sso/server";
 import {
+  buildAzureAdGroupRequiredMessage,
   ENTERPRISE_SSO_REQUIRED_MESSAGE,
   MULTI_TENANT_SSO_DOMAIN_MISMATCH_MESSAGE,
 } from "@/src/features/auth/constants";
@@ -1179,7 +1180,11 @@ export async function getAuthOptions(signupAttribution?: {
                     `Azure AD sign in denied for ${email}: user is not a member of any allowed group. allowed=[${allowedGroups.join(", ")}] user=[${userGroups.join(", ")}]`,
                   );
                 }
-                return false;
+                // Throw (rather than return false) so NextAuth redirects the
+                // message verbatim to /auth/error?error=<message>, surfacing the
+                // required groups to the user. Classified as an expected outcome
+                // in expectedAuthErrors.ts (matched by prefix).
+                throw new Error(buildAzureAdGroupRequiredMessage(allowedGroups));
               }
 
               logger.info(
